@@ -2,7 +2,7 @@
 //  ImageScrollView.swift
 //
 //
-//  Created by WangYiqiao on 16/6/10.
+//  Created by WangYiqiao on 16/11/24.
 //  Copyright © 2016年 wyq. All rights reserved.
 //
 
@@ -10,203 +10,151 @@ import UIKit
 
 class ImageScrollView: UIView, UIScrollViewDelegate
 {
+    //views
+    private lazy var scrollView: UIScrollView = {
+        let scrollView = UIScrollView()
+        scrollView.delegate = self
+        scrollView.isPagingEnabled = true
+        scrollView.showsHorizontalScrollIndicator = false
+        scrollView.showsVerticalScrollIndicator = false
+        scrollView.bounces = false
+        return scrollView
+    }()
+    
+    private lazy var pageControl: UIPageControl = {
+        let pageControl = UIPageControl()
+        pageControl.defersCurrentPageDisplay = true
+        pageControl.hidesForSinglePage = true
+        return pageControl
+    }()
+    
     //time interval of auto scrolling
-    let kAutoScrollInterval: NSTimeInterval = 5.0
+    private let kAutoScrollInterval: TimeInterval = 5.0
     
-    let scrollView = UIScrollView()
-    let pageControl = UIPageControl()
-    
-    var frameWidth: CGFloat!
-    var frameHeight: CGFloat!
-    var scrollTimer: NSTimer? = nil
-    var imageViews: [UIImageView] = []
+    private var frameWidth: CGFloat!
+    private var frameHeight: CGFloat!
+    private var scrollTimer: Timer? = nil
     
     //image clicked action, parameter: the index of clicked image
     var imageClickedHandler: ((Int) -> Void)?
 
     var images: [UIImage] = [] {
-        didSet
-        {
-            updateScrollView()
+        didSet {
+            layoutIfNeeded()
         }
     }
     
-    var isAutoScroll = false {
-        didSet
-        {
-            if isAutoScroll
-            {
-                startAutoScroll()
-            }
-            else
-            {
-                stopAutoScroll()
-            }
-        }
-    }
+    var isAutoScroll = true
     
     //MARK: - Init
     
-    override init(frame: CGRect)
-    {
+    override init(frame: CGRect) {
         super.init(frame: frame)
-        
-        frameWidth = frame.size.width
-        frameHeight = frame.size.height
-        
         setupViews()
     }
     
-    required init?(coder aDecoder: NSCoder)
-    {
+    required init?(coder aDecoder: NSCoder) {
         super.init(coder: aDecoder)
-        
         setupViews()
     }
     
-    override func layoutSubviews()
-    {
+    override func layoutSubviews(){
         super.layoutSubviews()
         
-        frameWidth = frame.size.width
-        frameHeight = frame.size.height
+        frameWidth = self.bounds.size.width
+        frameHeight = self.bounds.size.height
         
         scrollView.frame = self.bounds
         pageControl.center.x = self.center.x
         pageControl.center.y = self.bounds.size.height - 20
+        
+        updateScrollView()
+        updateImageViews()
     }
     
     //MARK: - Setup
     
-    func setupViews()
-    {
-        //setup scrollview
-        scrollView.frame = self.bounds
-        scrollView.delegate = self
-        scrollView.pagingEnabled = true
-        scrollView.showsHorizontalScrollIndicator = false
-        scrollView.showsVerticalScrollIndicator = false
-        scrollView.bounces = false
+    private func setupViews() {
         self.addSubview(scrollView)
-        
-        
-        //setup page controll
-        pageControl.center.x = self.center.x
-        pageControl.center.y = self.bounds.size.height - 20
-        pageControl.defersCurrentPageDisplay = true
-        pageControl.hidesForSinglePage = true
         self.addSubview(pageControl)
-        
     }
     
     //MARK: - Action
     
-    func tapOnImageView(recoginzer: UITapGestureRecognizer)
-    {
-        if let indexOfImage = recoginzer.view?.tag
-        {
+    @objc private func tapOnImageView(recoginzer: UITapGestureRecognizer) {
+        if let indexOfImage = recoginzer.view?.tag {
             self.imageClickedHandler?(indexOfImage)
         }
     }
     
-    //MARK: - Utility
-    
-    func startAutoScroll()
-    {
-        if scrollTimer != nil || images.count < 2 || !isAutoScroll
-        {
-            return
-        }
-        
-        let timer = NSTimer.scheduledTimerWithTimeInterval(kAutoScrollInterval, target: self, selector: #selector(doAutoScroll), userInfo: nil, repeats: true)
-        NSRunLoop.mainRunLoop().addTimer(timer, forMode: NSRunLoopCommonModes)
-        
-        self.scrollTimer = timer
-    }
-    
-    func doAutoScroll()
-    {
+    @objc private func doAutoScroll() {
         var offset = scrollView.contentOffset.x + frameWidth
         
         //scroll to the first image
-        if offset > CGFloat(self.images.count) * frameWidth
-        {
+        if offset > CGFloat(self.images.count) * frameWidth {
             offset = frameWidth
         }
         
-        scrollView.setContentOffset(CGPointMake(offset, 0), animated: true)
+        scrollView.setContentOffset(CGPoint(x: offset, y:0), animated: true)
         
         let page =  abs(Int((offset - frameWidth) / frameWidth))
         pageControl.currentPage = page
     }
     
-    func stopAutoScroll()
-    {
+    //MARK: - Public
+    
+    func startAutoScroll() {
+        if scrollTimer != nil || images.count < 2 || !isAutoScroll{
+            return
+        }
+        
+        let timer = Timer.scheduledTimer(timeInterval: kAutoScrollInterval, target: self, selector: #selector(doAutoScroll), userInfo: nil, repeats: true)
+        RunLoop.main.add(timer, forMode: RunLoopMode.commonModes)
+        
+        self.scrollTimer = timer
+    }
+    
+    
+    func stopAutoScroll() {
         self.scrollTimer?.invalidate()
         self.scrollTimer = nil
     }
     
-    func updateScrollView()
-    {
-        layoutIfNeeded()
-        
-        stopAutoScroll()
-        
+    // MARK: - Private
+    
+    private func updateScrollView() {
         pageControl.numberOfPages = images.count
         
-        // calculate the contentSize
-        if images.count >= 2
-        {
-            scrollView.contentSize = CGSizeMake(CGFloat(images.count + 2) * frameWidth, 0)
+        // 计算contentSize
+        if images.count >= 2 {
+            scrollView.contentSize = CGSize(width: CGFloat(images.count + 2) * frameWidth, height: 0)
             scrollView.contentOffset.x = frameWidth
         }
-        else
-        {
-            scrollView.contentSize = CGSizeMake(CGFloat(images.count) * frameWidth, 0)
+        else {
+            scrollView.contentSize = CGSize(width: CGFloat(images.count) * frameWidth, height: 0)
             scrollView.contentOffset.x = 0
         }
-        
-        updateImageViews()
-        
-        startAutoScroll()
     }
     
-    func clearImageViews()
-    {
-        for imgView in self.imageViews
-        {
-            imgView.removeFromSuperview()
-        }
-        
-        self.imageViews = []
-    }
-    
-    func updateImageViews()
-    {
-        clearImageViews()
-        
-        //add two more images to make a circle
+    private func updateImageViews() {
+
         //在首尾各多添加一张图片使之形成环
         let numOfImgviews = images.count >= 2 ? images.count + 2 : images.count
         
-        for i in 0..<numOfImgviews
-        {
-            let imageView = UIImageView(frame: CGRectMake(CGFloat(i) * frameWidth, 0, frameWidth, frameHeight))
-            imageView.userInteractionEnabled = true
-            imageView.contentMode = .ScaleToFill
+        for i in 0..<numOfImgviews {
+            let imageView = UIImageView(frame: CGRect(x: CGFloat(i) * frameWidth, y: 0, width: frameWidth, height: frameHeight))
+            imageView.isUserInteractionEnabled = true
+            imageView.contentMode = .scaleToFill
             
-            if i <= 0
-            {
+            if i <= 0 {
                 imageView.image = self.images.last
                 imageView.tag = numOfImgviews - 1
             }
-            else if i >= numOfImgviews - 1
-            {
+            else if i >= numOfImgviews - 1 {
                 imageView.image = self.images.first
                 imageView.tag = 0
             }
-            else
-            {
+            else {
                 imageView.image = self.images[i - 1]
                 imageView.tag = i - 1
             }
@@ -215,49 +163,39 @@ class ImageScrollView: UIView, UIScrollViewDelegate
             imageView.addGestureRecognizer(tapGesture)
             
             self.scrollView.addSubview(imageView)
-            self.imageViews.append(imageView)
         }
-        
-        
     }
     
     //MARK: - UIScrollView delegate
     
-    func scrollViewDidEndDecelerating(scrollView: UIScrollView)
-    {
+    func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
         var offset = scrollView.contentOffset.x
         
-        if self.images.count >= 2
-        {
+        if self.images.count >= 2 {
             //scroll to the last imageView
-            if offset > CGFloat(self.images.count) * frameWidth
-            {
+            if offset > CGFloat(self.images.count) * frameWidth {
                 scrollView.contentOffset.x = frameWidth
                 offset = scrollView.contentOffset.x
             }
             
             //scroll to the first imageView
-            if offset < frameWidth
-            {
+            if offset < frameWidth {
                 scrollView.contentOffset.x = CGFloat(self.images.count) * frameWidth
                 offset = scrollView.contentOffset.x
             }
         }
         
-        //calculate page
+        //计算页数
         let page =  abs(Int((offset - frameWidth) / frameWidth))
         pageControl.currentPage = page
     }
     
-    func scrollViewWillBeginDragging(scrollView: UIScrollView)
-    {
+    func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
         stopAutoScroll()
     }
     
-    func scrollViewDidEndDragging(scrollView: UIScrollView, willDecelerate decelerate: Bool)
-    {
+    func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
         startAutoScroll()
     }
-    
 }
 

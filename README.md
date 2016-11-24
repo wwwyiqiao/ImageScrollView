@@ -1,15 +1,8 @@
 # ImageScrollView
-infinite scrolling loop and auto scrolling
+infinite scrolling loop and auto scrolling, support autolayout
 
 ### Usage
 add file `ImageScrollView.swift` to your project
-
-##### Use Interface Builder
-
-
-##### Programmatically
-
-`let imageScrollView = ImageScrollView(frame: frame)`
 
 ##### Set properties
 
